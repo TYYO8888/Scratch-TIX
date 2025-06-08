@@ -57,6 +57,7 @@ export function AdvancedScratchCard({
   const [particles, setParticles] = useState<Particle[]>([]);
   const [lastScratchPos, setLastScratchPos] = useState<{ x: number; y: number } | null>(null);
   const animationFrameRef = useRef<number>();
+  const particlesRef = useRef<Particle[]>([]);
 
   // Audio context for scratch sounds
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -107,7 +108,7 @@ export function AdvancedScratchCard({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [enableParticles, particles]);
+  }, [enableParticles]); // Remove particles dependency to prevent infinite loop
 
   const selectPrizeByProbability = (prizes: Prize[]): Prize => {
     const activePrizes = prizes.filter(p => p.isActive && p.currentWinners < p.maxWinners);
@@ -259,7 +260,7 @@ export function AdvancedScratchCard({
     }
   };
 
-  const createParticles = (x: number, y: number) => {
+  const createParticles = useCallback((x: number, y: number) => {
     if (!enableParticles) return;
 
     const newParticles: Particle[] = [];
@@ -278,23 +279,31 @@ export function AdvancedScratchCard({
       });
     }
 
-    setParticles(prev => [...prev, ...newParticles]);
-  };
+    setParticles(prev => {
+      const updated = [...prev, ...newParticles];
+      particlesRef.current = updated;
+      return updated;
+    });
+  }, [enableParticles]);
 
-  const updateParticles = () => {
-    setParticles(prev => prev
-      .map(particle => ({
-        ...particle,
-        x: particle.x + particle.vx,
-        y: particle.y + particle.vy,
-        vy: particle.vy + 0.1, // Gravity
-        life: particle.life - (1 / 60) / particle.maxLife, // Assuming 60fps
-      }))
-      .filter(particle => particle.life > 0)
-    );
-  };
+  const updateParticles = useCallback(() => {
+    setParticles(prev => {
+      const updated = prev
+        .map(particle => ({
+          ...particle,
+          x: particle.x + particle.vx,
+          y: particle.y + particle.vy,
+          vy: particle.vy + 0.1, // Gravity
+          life: particle.life - (1 / 60) / particle.maxLife, // Assuming 60fps
+        }))
+        .filter(particle => particle.life > 0);
 
-  const renderParticles = () => {
+      particlesRef.current = updated;
+      return updated;
+    });
+  }, []);
+
+  const renderParticles = useCallback(() => {
     const canvas = particleCanvasRef.current;
     if (!canvas) return;
 
@@ -303,7 +312,7 @@ export function AdvancedScratchCard({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    particles.forEach(particle => {
+    particlesRef.current.forEach(particle => {
       ctx.save();
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = particle.color;
@@ -312,7 +321,7 @@ export function AdvancedScratchCard({
       ctx.fill();
       ctx.restore();
     });
-  };
+  }, []);
 
   const getEventPos = (event: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
