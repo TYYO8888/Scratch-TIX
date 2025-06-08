@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,20 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  // Auto-redirect to dashboard in development mode for demo
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const timer = setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000); // 2 second delay to show the page
+      return () => clearTimeout(timer);
+    }
+  }, [router]);
+
+  const handleDemoAccess = () => {
+    router.push('/dashboard');
+  };
 
   const {
     register,
@@ -72,6 +86,15 @@ export default function LoginPage() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          {/* Demo Notice */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md">
+              <p className="text-sm">
+                🎮 <strong>Demo Mode:</strong> You'll be automatically redirected to the dashboard in 2 seconds, or click the demo button below.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
               {error}
@@ -165,6 +188,16 @@ export default function LoginPage() {
                 />
               </svg>
               Continue with Google
+            </Button>
+
+            {/* Demo Access Button for Testing */}
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full bg-gradient-to-r from-purple-500 to-blue-600 text-white hover:from-purple-600 hover:to-blue-700"
+              onClick={handleDemoAccess}
+            >
+              🎮 Access Demo Platform
             </Button>
           </div>
 
