@@ -1,380 +1,315 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
+import { useAuth } from '@/lib/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/lib/hooks/use-auth';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreVertical,
+import {
+  Plus,
+  Search,
   Eye,
   Edit,
-  Copy,
-  Trash2,
   Play,
   Pause,
-  BarChart3,
   Users,
+  DollarSign,
+  Target,
+  Calendar,
+  Sparkles,
+  Crown,
+  Zap,
   Award,
-  Calendar
+  Activity
 } from 'lucide-react';
+import Link from 'next/link';
+import { AdvancedScratchCard } from '@/components/scratch-card/advanced-scratch-card';
 
-// Mock campaign data
-const mockCampaigns = [
+interface Campaign {
+  id: string;
+  name: string;
+  description: string;
+  status: 'active' | 'draft' | 'completed' | 'paused';
+  type: 'scratch' | 'coupon' | 'voucher';
+  participants: number;
+  conversion: number;
+  revenue: number;
+  createdAt: string;
+  isPopular?: boolean;
+}
+
+const mockCampaigns: Campaign[] = [
   {
     id: '1',
-    name: 'Summer Sale Scratch Card',
-    type: 'scratch',
+    name: 'Summer Sale Scratch & Win',
+    description: 'Win amazing prizes with our summer scratch cards!',
     status: 'active',
-    participants: 1247,
-    winners: 156,
-    conversionRate: 12.5,
-    createdAt: '2024-01-15',
-    updatedAt: '2024-01-20',
-    thumbnail: '/api/placeholder/300/200',
+    type: 'scratch',
+    participants: 2847,
+    conversion: 24.8,
+    revenue: 12450,
+    createdAt: '2024-01-01',
+    isPopular: true,
   },
   {
     id: '2',
-    name: 'Holiday Promotion',
-    type: 'coupon',
-    status: 'completed',
-    participants: 2891,
-    winners: 347,
-    conversionRate: 12.0,
-    createdAt: '2024-01-10',
-    updatedAt: '2024-01-18',
-    thumbnail: '/api/placeholder/300/200',
+    name: 'Holiday Mystery Box',
+    description: 'Discover hidden treasures in our holiday mystery boxes.',
+    status: 'active',
+    type: 'scratch',
+    participants: 1923,
+    conversion: 31.2,
+    revenue: 8920,
+    createdAt: '2024-01-05',
   },
   {
     id: '3',
     name: 'New Customer Welcome',
-    type: 'voucher',
+    description: 'Special welcome offer for new customers.',
     status: 'draft',
+    type: 'coupon',
     participants: 0,
-    winners: 0,
-    conversionRate: 0,
-    createdAt: '2024-01-22',
-    updatedAt: '2024-01-22',
-    thumbnail: '/api/placeholder/300/200',
-  },
-  {
-    id: '4',
-    name: 'Flash Weekend Deal',
-    type: 'scratch',
-    status: 'paused',
-    participants: 567,
-    winners: 68,
-    conversionRate: 12.0,
-    createdAt: '2024-01-18',
-    updatedAt: '2024-01-21',
-    thumbnail: '/api/placeholder/300/200',
+    conversion: 0,
+    revenue: 0,
+    createdAt: '2024-01-10',
   },
 ];
 
-const statusColors = {
-  active: 'bg-green-100 text-green-800',
-  completed: 'bg-gray-100 text-gray-800',
-  draft: 'bg-yellow-100 text-yellow-800',
-  paused: 'bg-red-100 text-red-800',
-};
-
-const typeIcons = {
-  scratch: '🎯',
-  coupon: '🎫',
-  voucher: '🎁',
-};
-
 export default function CampaignsPage() {
   const { userData, organization } = useAuth();
+  const [campaigns] = useState<Campaign[]>(mockCampaigns);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showPreview, setShowPreview] = useState<string | null>(null);
 
-  const filteredCampaigns = mockCampaigns.filter(campaign => {
-    const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || campaign.status === statusFilter;
-    const matchesType = typeFilter === 'all' || campaign.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
-  });
+  const filteredCampaigns = campaigns.filter(campaign =>
+    campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const stats = {
-    total: mockCampaigns.length,
-    active: mockCampaigns.filter(c => c.status === 'active').length,
-    totalParticipants: mockCampaigns.reduce((sum, c) => sum + c.participants, 0),
-    totalWinners: mockCampaigns.reduce((sum, c) => sum + c.winners, 0),
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-emerald-100 text-emerald-800';
+      case 'draft': return 'bg-amber-100 text-amber-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'paused': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'scratch': return Zap;
+      case 'coupon': return Award;
+      default: return Sparkles;
+    }
+  };
+
+  const CampaignCard = ({ campaign }: { campaign: Campaign }) => {
+    const TypeIcon = getTypeIcon(campaign.type);
+
+    return (
+      <div className="group relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-white to-gray-50 rounded-2xl"></div>
+        <div className="relative bg-white/80 backdrop-blur-sm border border-gray-100 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
+          <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 relative overflow-hidden">
+            <div className="absolute inset-0 bg-black/20"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-white text-center">
+                <TypeIcon className="w-12 h-12 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                <p className="font-semibold text-lg">{campaign.type.charAt(0).toUpperCase() + campaign.type.slice(1)} Campaign</p>
+              </div>
+            </div>
+
+            <div className="absolute top-4 left-4">
+              <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(campaign.status)}`}>
+                {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+              </span>
+            </div>
+
+            {campaign.isPopular && (
+              <div className="absolute top-4 right-4">
+                <span className="px-3 py-1 text-xs font-bold bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full shadow-lg">
+                  🔥 Popular
+                </span>
+              </div>
+            )}
+
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-3">
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-white/90 hover:bg-white"
+                onClick={() => setShowPreview(campaign.id)}
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                Preview
+              </Button>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                <Edit className="w-4 h-4 mr-1" />
+                Edit
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <h3 className="font-bold text-gray-900 text-lg group-hover:text-blue-600 transition-colors mb-2">
+              {campaign.name}
+            </h3>
+            <p className="text-gray-600 text-sm mb-4">{campaign.description}</p>
+
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <Users className="w-4 h-4 text-blue-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-gray-900">{campaign.participants.toLocaleString()}</p>
+                <p className="text-xs text-gray-500">Participants</p>
+              </div>
+              <div className="text-center">
+                <Target className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-emerald-600">{campaign.conversion}%</p>
+                <p className="text-xs text-gray-500">Conversion</p>
+              </div>
+              <div className="text-center">
+                <DollarSign className="w-4 h-4 text-purple-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-purple-600">${campaign.revenue.toLocaleString()}</p>
+                <p className="text-xs text-gray-500">Revenue</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {campaign.status === 'active' ? (
+                <Button size="sm" variant="outline" className="flex-1">
+                  <Pause className="w-4 h-4 mr-1" />
+                  Pause
+                </Button>
+              ) : campaign.status === 'draft' ? (
+                <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+                  <Play className="w-4 h-4 mr-1" />
+                  Launch
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="flex-1">
+                  <Activity className="w-4 h-4 mr-1" />
+                  View
+                </Button>
+              )}
+
+              <Button size="sm" variant="outline">
+                <Activity className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center text-xs text-gray-500">
+                <Calendar className="w-3 h-3 mr-1" />
+                Created {new Date(campaign.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
-          <p className="text-gray-600">Manage your scratch card campaigns</p>
-        </div>
-        <Link href="/dashboard/campaigns/new">
-          <Button>
-            <Plus style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-            Create Campaign
-          </Button>
-        </Link>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Campaigns</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent flex items-center">
+                <Crown className="w-8 h-8 mr-3 text-purple-600" />
+                My Campaigns
+              </h1>
+              <p className="text-gray-600 mt-2 text-lg">
+                Manage and monitor all your promotional campaigns
+              </p>
             </div>
-            <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-6 w-6 text-blue-600" />
-            </div>
+
+            <Link href="/dashboard/campaigns/new">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Campaign
+              </Button>
+            </Link>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Campaigns</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
-            </div>
-            <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <Play className="h-6 w-6 text-green-600" />
-            </div>
+        <div className="bg-white/80 backdrop-blur-sm border border-gray-100 rounded-2xl p-6 mb-8 shadow-lg">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Search campaigns..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-80"
+            />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Participants</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalParticipants.toLocaleString()}</p>
-            </div>
-            <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Users className="h-6 w-6 text-purple-600" />
-            </div>
+        {filteredCampaigns.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCampaigns.map((campaign) => (
+              <CampaignCard key={campaign.id} campaign={campaign} />
+            ))}
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Winners</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalWinners}</p>
+        ) : (
+          <div className="bg-white/80 backdrop-blur-sm border border-gray-100 rounded-2xl p-12 text-center shadow-lg">
+            <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="w-10 h-10 text-gray-400" />
             </div>
-            <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Award className="h-6 w-6 text-yellow-600" />
-            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">No campaigns found</h3>
+            <p className="text-gray-600 mb-8">Create your first campaign to start engaging with your audience.</p>
+            <Link href="/dashboard/campaigns/new">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Campaign
+              </Button>
+            </Link>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Filters and Search */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search campaigns..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ paddingLeft: '2.5rem', width: '300px' }}
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-              <option value="paused">Paused</option>
-              <option value="completed">Completed</option>
-            </select>
-
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="all">All Types</option>
-              <option value="scratch">Scratch Cards</option>
-              <option value="coupon">Coupons</option>
-              <option value="voucher">Vouchers</option>
-            </select>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm">
-              <Filter style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-              More Filters
-            </Button>
-            
-            <div className="flex border border-gray-300 rounded-lg">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 text-sm ${viewMode === 'grid' ? 'bg-gray-100' : ''}`}
-              >
-                Grid
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-gray-100' : ''}`}
-              >
-                List
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Campaigns Grid/List */}
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCampaigns.map((campaign) => (
-            <div key={campaign.id} className="bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-shadow">
-              <div className="aspect-video bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-4xl">
-                {typeIcons[campaign.type as keyof typeof typeIcons]}
+        {showPreview && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">🎮 Campaign Preview</h3>
+                <p className="text-gray-600">Experience your scratch card campaign</p>
               </div>
-              
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 truncate">{campaign.name}</h3>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[campaign.status as keyof typeof statusColors]}`}>
-                    {campaign.status}
-                  </span>
-                </div>
-                
-                <div className="space-y-2 text-sm text-gray-600 mb-4">
-                  <div className="flex items-center justify-between">
-                    <span>Participants:</span>
-                    <span className="font-medium">{campaign.participants.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Winners:</span>
-                    <span className="font-medium">{campaign.winners}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Conversion:</span>
-                    <span className="font-medium">{campaign.conversionRate}%</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <span className="text-xs text-gray-500">
-                      {new Date(campaign.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-1">
-                    <Button variant="ghost" size="sm">
-                      <Eye style={{ width: '1rem', height: '1rem' }} />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Edit style={{ width: '1rem', height: '1rem' }} />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <MoreVertical style={{ width: '1rem', height: '1rem' }} />
-                    </Button>
-                  </div>
-                </div>
+
+              <div className="flex justify-center mb-6">
+                <AdvancedScratchCard
+                  width={300}
+                  height={200}
+                  overlayImage="/api/placeholder/300/200"
+                  revealContent={
+                    <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-bold text-xl">
+                      🎉 You Won $50! 🎉
+                    </div>
+                  }
+                  scratchPercentage={30}
+                  onComplete={() => console.log('Scratch completed!')}
+                  enableParticles={true}
+                  enableSound={true}
+                  enableHaptics={true}
+                />
+              </div>
+
+              <div className="flex space-x-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowPreview(null)}
+                >
+                  Close
+                </Button>
+                <Button className="flex-1">
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Campaign
+                </Button>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Participants</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Winners</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Conversion</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredCampaigns.map((campaign) => (
-                  <tr key={campaign.id} className="hover:bg-gray-50">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center mr-3">
-                          <span className="text-lg">{typeIcons[campaign.type as keyof typeof typeIcons]}</span>
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{campaign.name}</div>
-                          <div className="text-sm text-gray-500">ID: {campaign.id}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-gray-900 capitalize">{campaign.type}</td>
-                    <td className="py-4 px-6">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[campaign.status as keyof typeof statusColors]}`}>
-                        {campaign.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-gray-900">{campaign.participants.toLocaleString()}</td>
-                    <td className="py-4 px-6 text-sm text-gray-900">{campaign.winners}</td>
-                    <td className="py-4 px-6 text-sm text-gray-900">{campaign.conversionRate}%</td>
-                    <td className="py-4 px-6 text-sm text-gray-500">{new Date(campaign.createdAt).toLocaleDateString()}</td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye style={{ width: '1rem', height: '1rem' }} />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Edit style={{ width: '1rem', height: '1rem' }} />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical style={{ width: '1rem', height: '1rem' }} />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {filteredCampaigns.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <BarChart3 className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No campaigns found</h3>
-          <p className="text-gray-600 mb-6">
-            {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' 
-              ? 'Try adjusting your filters to see more campaigns.'
-              : 'Get started by creating your first campaign.'}
-          </p>
-          <Link href="/dashboard/campaigns/new">
-            <Button>
-              <Plus style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-              Create Your First Campaign
-            </Button>
-          </Link>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

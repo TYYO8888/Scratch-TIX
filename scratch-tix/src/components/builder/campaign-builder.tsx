@@ -1,11 +1,27 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { CanvasWorkspace } from './canvas-workspace';
-import { ElementPalette } from './element-palette';
-import { PropertiesPanel } from './properties-panel';
-import { PreviewPanel } from './preview-panel';
-import { CanvasElement } from '@/lib/types/campaign';
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Type,
+  Image,
+  Square,
+  Circle,
+  Star,
+  Gift,
+  Zap,
+  Heart,
+  Trophy,
+  Crown,
+  Palette,
+  Settings,
+  Plus,
+  Trash2,
+  Copy,
+  RotateCcw
+} from 'lucide-react';
+import { AdvancedScratchCard } from '@/components/scratch-card/advanced-scratch-card';
 
 interface CampaignBuilderProps {
   campaignType: string;
@@ -13,228 +29,366 @@ interface CampaignBuilderProps {
   onSave: () => void;
 }
 
+interface CampaignSettings {
+  name: string;
+  prizeText: string;
+  backgroundColor: string;
+  textColor: string;
+  enableParticles: boolean;
+  enableSound: boolean;
+  enableHaptics: boolean;
+  scratchPercentage: number;
+}
+
 export function CampaignBuilder({ campaignType, template, onSave }: CampaignBuilderProps) {
-  const [elements, setElements] = useState<CanvasElement[]>([
-    {
-      id: '1',
-      type: 'text',
-      properties: {
-        x: 200,
-        y: 150,
-        width: 200,
-        height: 40,
-        text: 'Scratch & Win!',
-        fontSize: 24,
-        fontFamily: 'Arial',
-        fontWeight: 'bold',
-        color: '#ffffff',
-        textAlign: 'center',
-      },
-      position: { x: 200, y: 150 },
-      zIndex: 1,
-    },
-    {
-      id: '2',
-      type: 'text',
-      properties: {
-        x: 150,
-        y: 200,
-        width: 300,
-        height: 30,
-        text: 'Reveal your prize below!',
-        fontSize: 16,
-        fontFamily: 'Arial',
-        fontWeight: 'normal',
-        color: '#ffffff',
-        textAlign: 'center',
-      },
-      position: { x: 150, y: 200 },
-      zIndex: 2,
-    },
-  ]);
-  
-  const [selectedElement, setSelectedElement] = useState<string | null>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 400, height: 300 });
-  const [previewMode, setPreviewMode] = useState<'design' | 'preview'>('design');
-  const [device, setDevice] = useState<'desktop' | 'mobile' | 'tablet'>('desktop');
+  const [activeTab, setActiveTab] = useState<'design' | 'content' | 'effects'>('design');
+  const [showPreview, setShowPreview] = useState(false);
 
-  const handleElementAdd = (elementType: 'text' | 'image' | 'shape') => {
-    const newElement: CanvasElement = {
-      id: Date.now().toString(),
-      type: elementType,
-      properties: {
-        x: 100,
-        y: 100,
-        width: elementType === 'text' ? 200 : 100,
-        height: elementType === 'text' ? 40 : 100,
-        ...(elementType === 'text' && {
-          text: 'New Text',
-          fontSize: 16,
-          fontFamily: 'Arial',
-          fontWeight: 'normal',
-          color: '#000000',
-          textAlign: 'left',
-        }),
-        ...(elementType === 'image' && {
-          src: '/api/placeholder/100/100',
-          alt: 'Image',
-        }),
-        ...(elementType === 'shape' && {
-          fill: '#3b82f6',
-          stroke: '#1e40af',
-          strokeWidth: 2,
-          shapeType: 'rectangle',
-        }),
-      },
-      position: { x: 100, y: 100 },
-      zIndex: elements.length + 1,
+  const [settings, setSettings] = useState<CampaignSettings>({
+    name: 'My Campaign',
+    prizeText: '🎉 You Won $50! 🎉',
+    backgroundColor: getTemplateColor(template),
+    textColor: '#ffffff',
+    enableParticles: true,
+    enableSound: true,
+    enableHaptics: true,
+    scratchPercentage: 30,
+  });
+
+  function getTemplateColor(templateId: string): string {
+    const colors: Record<string, string> = {
+      'modern-blue': '#3b82f6',
+      'festive-red': '#ef4444',
+      'summer-gradient': '#f59e0b',
+      'minimal-white': '#f3f4f6',
+      'gaming-neon': '#8b5cf6',
+      'luxury-gold': '#f59e0b',
     };
+    return colors[templateId] || '#3b82f6';
+  }
 
-    setElements([...elements, newElement]);
-    setSelectedElement(newElement.id);
+  const updateSetting = (key: keyof CampaignSettings, value: any) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleElementUpdate = (elementId: string, updates: Partial<CanvasElement>) => {
-    setElements(elements.map(el => 
-      el.id === elementId ? { ...el, ...updates } : el
-    ));
-  };
+  const designElements = [
+    { id: 'text', name: 'Text', icon: Type, description: 'Add custom text' },
+    { id: 'image', name: 'Image', icon: Image, description: 'Upload images' },
+    { id: 'shape', name: 'Shape', icon: Square, description: 'Basic shapes' },
+    { id: 'icon', name: 'Icons', icon: Star, description: 'Decorative icons' },
+  ];
 
-  const handleElementDelete = (elementId: string) => {
-    setElements(elements.filter(el => el.id !== elementId));
-    if (selectedElement === elementId) {
-      setSelectedElement(null);
-    }
-  };
-
-  const handleElementSelect = (elementId: string | null) => {
-    setSelectedElement(elementId);
-  };
-
-  const selectedElementData = selectedElement 
-    ? elements.find(el => el.id === selectedElement) 
-    : null;
+  const iconElements = [
+    { id: 'gift', icon: Gift, name: 'Gift' },
+    { id: 'lightning', icon: Zap, name: 'Lightning' },
+    { id: 'heart', icon: Heart, name: 'Heart' },
+    { id: 'trophy', icon: Trophy, name: 'Trophy' },
+    { id: 'crown', icon: Crown, name: 'Crown' },
+    { id: 'star', icon: Star, name: 'Star' },
+  ];
 
   return (
-    <div className="flex h-full">
-      {/* Left Sidebar - Element Palette */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Elements</h2>
-          <p className="text-sm text-gray-600">Drag elements to canvas</p>
+    <div className="h-full flex flex-col">
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 bg-white">
+        <div className="flex space-x-1 p-1">
+          {[
+            { id: 'design', name: 'Design', icon: Palette },
+            { id: 'content', name: 'Content', icon: Type },
+            { id: 'effects', name: 'Effects', icon: Zap },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="w-4 h-4 mr-2" />
+                {tab.name}
+              </button>
+            );
+          })}
         </div>
-        
-        <ElementPalette onElementAdd={handleElementAdd} />
       </div>
 
-      {/* Center - Canvas Workspace */}
-      <div className="flex-1 flex flex-col bg-gray-50">
-        {/* Canvas Toolbar */}
-        <div className="bg-white border-b border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">Mode:</label>
-                <select 
-                  value={previewMode}
-                  onChange={(e) => setPreviewMode(e.target.value as 'design' | 'preview')}
-                  className="text-sm border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="design">Design</option>
-                  <option value="preview">Preview</option>
-                </select>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">Device:</label>
-                <select 
-                  value={device}
-                  onChange={(e) => setDevice(e.target.value as 'desktop' | 'mobile' | 'tablet')}
-                  className="text-sm border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="desktop">Desktop</option>
-                  <option value="tablet">Tablet</option>
-                  <option value="mobile">Mobile</option>
-                </select>
+      {/* Tab Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
+        {/* Design Tab */}
+        {activeTab === 'design' && (
+          <div className="space-y-6">
+            {/* Color Settings */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                <Palette className="w-4 h-4 mr-2 text-purple-600" />
+                Colors & Theme
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="color"
+                      value={settings.backgroundColor}
+                      onChange={(e) => updateSetting('backgroundColor', e.target.value)}
+                      className="w-12 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                    />
+                    <Input
+                      value={settings.backgroundColor}
+                      onChange={(e) => updateSetting('backgroundColor', e.target.value)}
+                      className="flex-1"
+                      placeholder="#3b82f6"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="color"
+                      value={settings.textColor}
+                      onChange={(e) => updateSetting('textColor', e.target.value)}
+                      className="w-12 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                    />
+                    <Input
+                      value={settings.textColor}
+                      onChange={(e) => updateSetting('textColor', e.target.value)}
+                      className="flex-1"
+                      placeholder="#ffffff"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">Canvas Size:</label>
-              <input
-                type="number"
-                value={canvasSize.width}
-                onChange={(e) => setCanvasSize({ ...canvasSize, width: parseInt(e.target.value) })}
-                className="w-16 text-sm border border-gray-300 rounded px-2 py-1"
+            {/* Design Elements */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                <Plus className="w-4 h-4 mr-2 text-blue-600" />
+                Add Elements
+              </h3>
+
+              <div className="grid grid-cols-2 gap-3">
+                {designElements.map((element) => {
+                  const Icon = element.icon;
+                  return (
+                    <button
+                      key={element.id}
+                      className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                        <Icon className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{element.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{element.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick Icons */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Quick Icons</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {iconElements.map((icon) => {
+                  const Icon = icon.icon;
+                  return (
+                    <button
+                      key={icon.id}
+                      className="flex flex-col items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    >
+                      <Icon className="w-6 h-6 text-gray-600 mb-1" />
+                      <span className="text-xs text-gray-600">{icon.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Content Tab */}
+        {activeTab === 'content' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                <Type className="w-4 h-4 mr-2 text-emerald-600" />
+                Campaign Content
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Campaign Name</label>
+                  <Input
+                    value={settings.name}
+                    onChange={(e) => updateSetting('name', e.target.value)}
+                    placeholder="Enter campaign name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Prize Text</label>
+                  <textarea
+                    value={settings.prizeText}
+                    onChange={(e) => updateSetting('prizeText', e.target.value)}
+                    rows={3}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    placeholder="Enter the text that appears when users win"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Effects Tab */}
+        {activeTab === 'effects' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                <Zap className="w-4 h-4 mr-2 text-amber-600" />
+                Interactive Effects
+              </h3>
+
+              <div className="space-y-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={settings.enableParticles}
+                    onChange={(e) => updateSetting('enableParticles', e.target.checked)}
+                    className="mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Particle Effects</span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={settings.enableSound}
+                    onChange={(e) => updateSetting('enableSound', e.target.checked)}
+                    className="mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Sound Effects</span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={settings.enableHaptics}
+                    onChange={(e) => updateSetting('enableHaptics', e.target.checked)}
+                    className="mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Haptic Feedback</span>
+                </label>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Scratch Sensitivity: {settings.scratchPercentage}%
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="70"
+                    value={settings.scratchPercentage}
+                    onChange={(e) => updateSetting('scratchPercentage', parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>More Sensitive</span>
+                    <span>Less Sensitive</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="border-t border-gray-200 bg-white p-4">
+        <div className="flex space-x-3">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => setShowPreview(true)}
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Preview
+          </Button>
+          <Button
+            onClick={onSave}
+            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          >
+            <Copy className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      </div>
+
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Live Preview</h3>
+              <p className="text-gray-600 text-sm">Test your scratch card</p>
+            </div>
+
+            <div className="flex justify-center mb-4">
+              <AdvancedScratchCard
+                width={300}
+                height={200}
+                overlayImage="/api/placeholder/300/200"
+                revealContent={
+                  <div
+                    className="w-full h-full flex items-center justify-center text-white font-bold text-center p-4"
+                    style={{ backgroundColor: settings.backgroundColor, color: settings.textColor }}
+                  >
+                    <div>
+                      <div className="text-2xl mb-2">🎉</div>
+                      <div className="text-lg">{settings.prizeText}</div>
+                    </div>
+                  </div>
+                }
+                scratchPercentage={settings.scratchPercentage}
+                onComplete={() => console.log('Scratch completed!')}
+                enableParticles={settings.enableParticles}
+                enableSound={settings.enableSound}
+                enableHaptics={settings.enableHaptics}
               />
-              <span className="text-sm text-gray-500">×</span>
-              <input
-                type="number"
-                value={canvasSize.height}
-                onChange={(e) => setCanvasSize({ ...canvasSize, height: parseInt(e.target.value) })}
-                className="w-16 text-sm border border-gray-300 rounded px-2 py-1"
-              />
-              <span className="text-sm text-gray-500">px</span>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowPreview(false)}
+              >
+                Close
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setShowPreview(false);
+                  window.open('/preview?campaign=temp', '_blank');
+                }}
+              >
+                Full Preview
+              </Button>
             </div>
           </div>
         </div>
-
-        {/* Canvas Area */}
-        <div className="flex-1 p-8 overflow-auto">
-          <div className="flex justify-center">
-            <div 
-              className="bg-white shadow-lg rounded-lg overflow-hidden"
-              style={{
-                width: device === 'mobile' ? '320px' : device === 'tablet' ? '768px' : `${canvasSize.width}px`,
-                maxWidth: '100%',
-              }}
-            >
-              <CanvasWorkspace
-                elements={elements}
-                selectedElement={selectedElement}
-                canvasSize={canvasSize}
-                previewMode={previewMode}
-                onElementSelect={handleElementSelect}
-                onElementUpdate={handleElementUpdate}
-                onElementDelete={handleElementDelete}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Sidebar - Properties Panel */}
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
-          <p className="text-sm text-gray-600">
-            {selectedElementData ? `Edit ${selectedElementData.type}` : 'Select an element'}
-          </p>
-        </div>
-        
-        <div className="flex-1 overflow-auto">
-          {selectedElementData ? (
-            <PropertiesPanel
-              element={selectedElementData}
-              onUpdate={(updates) => handleElementUpdate(selectedElementData.id, updates)}
-              onDelete={() => handleElementDelete(selectedElementData.id)}
-            />
-          ) : (
-            <div className="p-4 text-center text-gray-500">
-              <p>Select an element to edit its properties</p>
-            </div>
-          )}
-        </div>
-
-        {/* Preview Panel */}
-        <div className="border-t border-gray-200">
-          <PreviewPanel
-            elements={elements}
-            canvasSize={canvasSize}
-            campaignType={campaignType}
-          />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
