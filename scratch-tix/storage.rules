@@ -1,0 +1,81 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isCampaignOwner(campaignId) {
+      return isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/campaigns/$(campaignId)) &&
+        firestore.get(/databases/(default)/documents/campaigns/$(campaignId)).data.createdBy == request.auth.uid;
+    }
+    
+    function isValidImageFile() {
+      return request.resource.contentType.matches('image/.*') &&
+        request.resource.size < 10 * 1024 * 1024; // 10MB limit
+    }
+    
+    function isValidDocumentFile() {
+      return request.resource.contentType.matches('(application/pdf|text/.*|application/json)') &&
+        request.resource.size < 5 * 1024 * 1024; // 5MB limit
+    }
+
+    // Campaign assets - public read, authenticated write for campaign owners
+    match /campaigns/{campaignId}/{allPaths=**} {
+      allow read: if true; // Public read for campaign assets
+      allow write: if isCampaignOwner(campaignId) && 
+        (isValidImageFile() || isValidDocumentFile());
+    }
+    
+    // User profile images and personal files
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId) && isValidImageFile();
+    }
+    
+    // Organization assets - members can read, admins can write
+    match /organizations/{orgId}/{allPaths=**} {
+      allow read: if isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/organizations/$(orgId)) &&
+        request.auth.uid in firestore.get(/databases/(default)/documents/organizations/$(orgId)).data.members;
+      allow write: if isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/organizations/$(orgId)) &&
+        (request.auth.uid == firestore.get(/databases/(default)/documents/organizations/$(orgId)).data.ownerId ||
+         request.auth.uid in firestore.get(/databases/(default)/documents/organizations/$(orgId)).data.admins) &&
+        (isValidImageFile() || isValidDocumentFile());
+    }
+    
+    // Template assets - public read for public templates, authenticated write for creators
+    match /templates/{templateId}/{allPaths=**} {
+      allow read: if firestore.exists(/databases/(default)/documents/templates/$(templateId)) &&
+        (firestore.get(/databases/(default)/documents/templates/$(templateId)).data.isPublic == true ||
+         (isAuthenticated() && request.auth.uid == firestore.get(/databases/(default)/documents/templates/$(templateId)).data.createdBy));
+      allow write: if isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/templates/$(templateId)) &&
+        request.auth.uid == firestore.get(/databases/(default)/documents/templates/$(templateId)).data.createdBy &&
+        isValidImageFile();
+    }
+    
+    // Temporary uploads - authenticated users only, auto-cleanup after 24 hours
+    match /temp/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId) && 
+        (isValidImageFile() || isValidDocumentFile());
+    }
+    
+    // Public assets - read-only for everyone
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Only allow writes through admin functions
+    }
+    
+    // Exports - only accessible by the user who requested them
+    match /exports/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId) && isValidDocumentFile();
+    }
+  }
+}

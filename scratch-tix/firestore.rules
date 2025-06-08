@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isOrganizationMember(orgId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)).data.members;
+    }
+    
+    function isCampaignOwner(campaignId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/campaigns/$(campaignId)) &&
+        request.auth.uid == get(/databases/$(database)/documents/campaigns/$(campaignId)).data.createdBy;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/organizations/{orgId}) &&
+        request.auth.uid in get(/databases/$(database)/documents/organizations/{orgId}).data.members &&
+        userId in get(/databases/$(database)/documents/organizations/{orgId}).data.members;
+    }
+    
+    // Organizations collection
+    match /organizations/{orgId} {
+      allow read: if isOrganizationMember(orgId);
+      allow write: if isAuthenticated() && 
+        request.auth.uid == resource.data.ownerId;
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.ownerId;
+    }
+    
+    // Campaigns collection
+    match /campaigns/{campaignId} {
+      allow read: if isCampaignOwner(campaignId) || 
+        isOrganizationMember(resource.data.organizationId);
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.createdBy &&
+        isOrganizationMember(request.resource.data.organizationId);
+      allow update, delete: if isCampaignOwner(campaignId);
+    }
+    
+    // Participants collection - allow anonymous participation
+    match /participants/{participantId} {
+      allow create: if true; // Allow anonymous participation
+      allow read: if isCampaignOwner(resource.data.campaignId);
+      allow update: if isCampaignOwner(resource.data.campaignId);
+    }
+    
+    // Templates collection
+    match /templates/{templateId} {
+      allow read: if resource.data.isPublic == true || 
+        (isAuthenticated() && request.auth.uid == resource.data.createdBy) ||
+        (isAuthenticated() && isOrganizationMember(resource.data.organizationId));
+      allow write: if isAuthenticated() && 
+        (request.auth.uid == resource.data.createdBy ||
+         isOrganizationMember(resource.data.organizationId));
+    }
+    
+    // Analytics collection
+    match /analytics/{analyticsId} {
+      allow read, write: if isAuthenticated() && 
+        isCampaignOwner(resource.data.campaignId);
+    }
+    
+    // Audit logs - read-only for organization members
+    match /audit_logs/{logId} {
+      allow read: if isOrganizationMember(resource.data.organizationId);
+      allow create: if isAuthenticated();
+    }
+  }
+}
